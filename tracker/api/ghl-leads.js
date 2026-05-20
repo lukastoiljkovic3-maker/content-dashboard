@@ -41,7 +41,7 @@ export default async function handler(req, res) {
 
       hasMore = contacts.length === 100;
       page++;
-      if (page > 20) break; // safety cap at 2000 contacts
+      if (page > 50) break; // safety cap at 5000 contacts
     }
 
     const hasTag = (c, ...tags) =>
@@ -50,27 +50,30 @@ export default async function handler(req, res) {
     const todayStr = new Date().toISOString().slice(0, 10);
     const isToday = (c) => (c.dateAdded || '').slice(0, 10) === todayStr;
 
-    // Priority: qualified > dq > lead-magnet
+    // Priority: qualified > dq > lead-magnet > webinar-only
     const categorized = allContacts
-      .filter(c => hasTag(c, 'qualified', 'dq', 'lead-magnet', 'lead magnet', 'leadmagnet'))
+      .filter(c => hasTag(c, 'qualified', 'dq', 'lead-magnet', 'lead magnet', 'leadmagnet', 'webinar-lead', 'webinar lead'))
       .filter(c => !requireWebinar || hasTag(c, 'webinar-lead', 'webinar lead'))
       .filter(c => !onlyToday || isToday(c))
       .map(c => {
         let lead_type;
         if (hasTag(c, 'qualified'))                               lead_type = 'qualified';
         else if (hasTag(c, 'dq'))                                 lead_type = 'dq';
-        else                                                      lead_type = 'lead_magnet';
+        else if (hasTag(c, 'lead-magnet', 'lead magnet', 'leadmagnet')) lead_type = 'lead_magnet';
+        else                                                      lead_type = 'webinar_only';
         return { ...c, lead_type };
       });
 
-    const qualified  = categorized.filter(c => c.lead_type === 'qualified');
-    const dq         = categorized.filter(c => c.lead_type === 'dq');
-    const leadMagnet = categorized.filter(c => c.lead_type === 'lead_magnet');
+    const qualified   = categorized.filter(c => c.lead_type === 'qualified');
+    const dq          = categorized.filter(c => c.lead_type === 'dq');
+    const leadMagnet  = categorized.filter(c => c.lead_type === 'lead_magnet');
+    const webinarOnly = categorized.filter(c => c.lead_type === 'webinar_only');
 
     res.status(200).json({
       qualified,
       dq,
       leadMagnet,
+      webinarOnly,
       total: categorized.length,
       filters: { onlyToday, requireWebinar }
     });
